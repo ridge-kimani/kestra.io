@@ -1,179 +1,217 @@
 <template>
     <div class="container">
-        <BlogsList v-if="slug === '/blogs/' || slug === '/blogs/community'" :blogs="page"
-                   :external-news="externalNews"/>
+        <BlogsList
+            v-if="slug === '/blogs/' || slug === '/blogs/community'"
+            :blogs="page"
+            :external-news="externalNews"
+        />
 
         <div v-else class="container bd-gutter bd-layout margin">
-            <article class="bd-main order-1" v-if="page" :class="{'full': page.rightBar === false}">
+            <article
+                class="bd-main order-1"
+                v-if="page"
+                :class="{ full: page.rightBar === false }"
+            >
                 <ContentRenderer :value="page">
                     <div class="bd-title">
                         <p data-aos="fade-right" class="para">
-                            <NuxtLink to="/">Home</NuxtLink>  / 
+                            <NuxtLink to="/">Home</NuxtLink> /
                             <NuxtLink to="/blogs">Blog</NuxtLink>
                         </p>
-                        <h2 data-aos="fade-left" class="pt-0">{{ page.title }}</h2>
+                        <h2 data-aos="fade-left" class="pt-0">
+                            {{ page.title }}
+                        </h2>
                     </div>
                     <NavToc data-aos="fade-zoom" :page="page">
                         <template #header>
-                            <BlogDetails :blog="page"/>
+                            <BlogDetails :blog="page" />
                         </template>
                     </NavToc>
                     <div class="bd-content">
-                        <NuxtImg loading="lazy" format="webp" quality="80" densities="x1 x2" data-aos="fade-right"
-                                 class="mb-2 rounded-3 img" :alt="page.title" :src="page.image" fit="cover"/>
-                                 <ClientOnly>
-                                     <ContentRendererMarkdown
-                                         data-aos="fade-zoom"
-                                         class="bd-markdown mt-4"
-                                         :value="page"
-                                         data-bs-spy="scroll"
-                                         data-bs-target="#nav-toc"
-                                     />
-                                 </ClientOnly>
+                        <NuxtImg
+                            loading="lazy"
+                            format="webp"
+                            quality="80"
+                            densities="x1 x2"
+                            data-aos="fade-right"
+                            class="mb-2 rounded-3 img"
+                            :alt="page.title"
+                            :src="page.image"
+                            fit="cover"
+                        />
+                        <ClientOnly>
+                            <ContentRendererMarkdown
+                                data-aos="fade-zoom"
+                                class="bd-markdown mt-4"
+                                :value="page"
+                                data-bs-spy="scroll"
+                                data-bs-target="#nav-toc"
+                            />
+                        </ClientOnly>
                     </div>
                 </ContentRenderer>
             </article>
             <div class="bottom">
-                <DocsBlogs title="More contents"/>
-                <LayoutNewsletter/>
+                <DocsBlogs title="More contents" />
+                <LayoutNewsletter />
             </div>
         </div>
-
     </div>
 </template>
 
 <script setup>
-    import NavToc from "~/components/docs/NavToc.vue";
-    import BlogDetails from "~/components/blogs/BlogDetails.vue";
+import NavToc from "~/components/docs/NavToc.vue";
+import BlogDetails from "~/components/blogs/BlogDetails.vue";
 
-    const route = useRoute()
-    const slug = "/blogs/" + (route.params.slug instanceof Array ? route.params.slug.join('/') : route.params.slug);
-    const externalNews = ref()
-    const page = ref([]);
+const route = useRoute();
+const slug =
+    "/blogs/" +
+    (route.params.slug instanceof Array
+        ? route.params.slug.join("/")
+        : route.params.slug);
+const externalNews = ref();
+const page = ref([]);
 
-    const sort = (data)=>{
-        data.sort((a,b)=>
-            new Date(a.date)-new Date(b.date)
-        )
+const sort = (data) => {
+    data.sort((a, b) => new Date(a.date) - new Date(b.date));
+};
+if (slug === "/blogs/" || slug === "/blogs/community") {
+    if (slug === "/blogs/") {
+        const { data: pageData } = await useAsyncData(`Blog-Page-List`, () =>
+            queryContent("/blogs/").find()
+        );
+        sort(pageData.value);
+        page.value = pageData.value;
     }
-    if (slug === "/blogs/" || slug === '/blogs/community') {
 
-        if (slug === "/blogs/") {
-            const {data: pageData} = await useAsyncData(
-                `Blog-Page-List`,
-                () => queryContent("/blogs/").find()
+    const { data: externalNewsData } = await useAsyncData(
+        `blog-external-news`,
+        () => {
+            return $fetch(
+                `https://api.kestra.io/v1/external-blogs${
+                    slug === "/blogs/" ? "?size=4" : ""
+                }`
             );
-            sort(pageData.value)
-            page.value = pageData.value;
         }
+    );
 
-        const {data: externalNewsData} = await useAsyncData(`blog-external-news`, () => {
-            return $fetch(`https://api.kestra.io/v1/external-blogs${slug === '/blogs/' ? '?size=4' : ''}`)
-        });
+    externalNews.value = externalNewsData.value.results.map((data) => {
+        return {
+            id: data.id,
+            _path: data.link,
+            image: data.image,
+            category: data.media,
+            author: { name: data.author },
+            title: data.title,
+            date: data.publicationDate,
+        };
+    });
 
-        externalNews.value = externalNewsData.value.results.map((data) => {
-            return {
-                id: data.id,
-                _path: data.link,
-                image: data.image,
-                category: data.media,
-                author: {name: data.author},
-                title: data.title,
-                date: data.publicationDate
-            }
-        })
-
-        useHead({
-            title: "Insights & News on Data Orchestration",
-            description: "Explore the Kestra Blog for the latest articles, insights, product updates & engineering deep dives."
-        })
-    } else {
-        const {data, error} = await useAsyncData(`Blog-Page-Item-${slug}`, () => {
-            try {
-                return queryContent(slug).findOne();
-            } catch (error) {
-                throw createError({statusCode: 404, message: error.toString(), data: error, fatal: true})
-            }
-        });
-
-        if (error && error.value) {
-            throw error.value;
+    useHead({
+        title: "Insights & News on Data Orchestration",
+        description:
+            "Explore the Kestra Blog for the latest articles, insights, product updates & engineering deep dives.",
+    });
+} else {
+    const { data, error } = await useAsyncData(`Blog-Page-Item-${slug}`, () => {
+        try {
+            return queryContent(slug).findOne();
+        } catch (error) {
+            throw createError({
+                statusCode: 404,
+                message: error.toString(),
+                data: error,
+                fatal: true,
+            });
         }
+    });
 
-        page.value = data.value;
-
-        useContentHead(page)
-        const {title,author,description,image,date} = page.value
-        const { origin } = useRequestURL()
-        useHead({
-            meta: [
-                { name: 'twitter:card', content: 'summary_large_image' },
-                { name: 'twitter:site', content: '@kestra_io' },
-                { name: 'twitter:title', content: title },
-                { name: 'twitter:description', content: description },
-                { name: 'twitter:image', content: `${origin + image}` },
-                { name: 'twitter:image:alt', content: title }
-            ],
-            script : [{
-                    innerHTML : JSON.stringify({
-                        "@context" : "http://schema.org",
-                        "@type" : "BlogPosting",
-                        "mainEntityofPage" : {
-                            "@type" : "Webpage",
-                            "@id" : slug,
-                        },
-                        "headline": title, 
-                        "image": [image ], 
-                        "datePublished": date, 
-                        "author": { "@type": "Person", "name": `${author.name}` }, 
-                        "publisher": { "@type": "Organization", "name": "Kestra", "logo": { "@type": "ImageObject", "url": "https://kestra.io/logo.svg" } },
-                        "description": description,
-
-                    }),
-                    type  : "application/ld+json"
-                }]
-            })
+    if (error && error.value) {
+        throw error.value;
     }
+
+    page.value = data.value;
+
+    useContentHead(page);
+    const { title, author, description, image, date } = page.value;
+    const { origin } = useRequestURL();
+    useHead({
+        meta: [
+            { name: "twitter:card", content: "summary_large_image" },
+            { name: "twitter:site", content: "@kestra_io" },
+            { name: "twitter:title", content: title },
+            { name: "twitter:description", content: description },
+            { name: "twitter:image", content: `${origin + image}` },
+            { name: "twitter:image:alt", content: title },
+        ],
+        script: [
+            {
+                innerHTML: JSON.stringify({
+                    "@context": "http://schema.org",
+                    "@type": "BlogPosting",
+                    mainEntityofPage: {
+                        "@type": "Webpage",
+                        "@id": slug,
+                    },
+                    headline: title,
+                    image: [image],
+                    datePublished: date,
+                    author: { "@type": "Person", name: `${author.name}` },
+                    publisher: {
+                        "@type": "Organization",
+                        name: "Kestra",
+                        logo: {
+                            "@type": "ImageObject",
+                            url: "https://kestra.io/logo.svg",
+                        },
+                    },
+                    description: description,
+                }),
+                type: "application/ld+json",
+            },
+        ],
+    });
+}
 </script>
 
 <style lang="scss" scoped>
-    @import "../../assets/styles/variable";
-    @import '../../assets/styles/docs.scss';
+@import "../../assets/styles/variable";
+@import "../../assets/styles/docs.scss";
 
-    :deep(.slug) {
-        margin-left: 0;
-    }
-    .img{
-        min-width: 100%;
-    }
+:deep(.slug) {
+    margin-left: 0;
+}
+.img {
+    min-width: 100%;
+}
 
-    .bd-layout {
-        display: block;
-    }
-    .bd-main{
-        row-gap: 0px;
-        column-gap: 4rem;
-    }
-    .bd-content{
-        min-width: 100%;
-    }
-    h2{
-        line-height: 3.25rem;
-        font-weight: 600;
-        font-size: 2.375rem !important;
-    }
-    .para{
-        line-height: 1.375rem ;
-        font-size: $font-size-sm ;
-        margin-bottom: $font-size-xs;
-        font-weight: 600;
-    }
-    :deep(p){
-        line-height: 1.75rem;   
-    }
-    :deep(h2){
-        font-size: 1.75rem;
-        line-height: 2.735rem;
-        font-weight: 600;
-    }
+.bd-layout {
+    display: block;
+}
+.bd-main {
+    row-gap: 0;
+    column-gap: 4rem;
+}
+.bd-content {
+    min-width: 100%;
+}
+h2 {
+    line-height: 3.25rem;
+    font-weight: 600;
+    font-size: 2.375rem !important;
+}
+.para {
+    line-height: 1.375rem;
+    font-size: $font-size-sm;
+    margin-bottom: $font-size-xs;
+    font-weight: 600;
+}
+:deep(p) {
+    line-height: 1.75rem;
+}
+:deep(h2) {
+    font-size: 1.75rem;
+    line-height: 2.735rem;
+    font-weight: 600;
+}
 </style>
